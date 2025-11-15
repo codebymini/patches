@@ -1,15 +1,3 @@
-# Max IOB for Automatic Boluses Patch
-# This patch adds a configurable maximum IOB setting for automatic boluses
-# Defaults to 2x maximum bolus if not set
-#
-# To apply:
-#   cd LoopKit && git apply ../patches/max_iob_automatic_boluses.patch && cd ..
-#   cd Loop && git apply ../patches/max_iob_automatic_boluses.patch && cd ..
-#
-# To revert:
-#   cd LoopKit && git apply -R ../patches/max_iob_automatic_boluses.patch && cd ..
-#   cd Loop && git apply -R ../patches/max_iob_automatic_boluses.patch && cd ..
-
 diff --git a/LoopKit/DeliveryLimits.swift b/LoopKit/DeliveryLimits.swift
 index 28a6a591..6d213f7e 100644
 --- a/LoopKit/DeliveryLimits.swift
