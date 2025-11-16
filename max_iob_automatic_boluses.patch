@@ -1,19 +1,98 @@
-# Max IOB for Automatic Boluses Patch
-# This patch adds a configurable maximum IOB setting for automatic boluses
-# Defaults to 2x maximum bolus if not set
-#
-# To apply:
-#   cd LoopKit && git apply ../patches/max_iob_automatic_boluses.patch && cd ..
-#   cd Loop && git apply ../patches/max_iob_automatic_boluses.patch && cd ..
-#
-# To revert:
-#   cd LoopKit && git apply -R ../patches/max_iob_automatic_boluses.patch && cd ..
-#   cd Loop && git apply -R ../patches/max_iob_automatic_boluses.patch && cd ..
-
-diff --git a/DeliveryLimits.swift b/DeliveryLimits.swift
+Submodule Loop contains modified content
+diff --git a/Loop/Managers/DeviceDataManager.swift b/Loop/Managers/DeviceDataManager.swift
+index 2751f18f..bcf69b8c 100644
+--- a/Loop/Managers/DeviceDataManager.swift
++++ b/Loop/Managers/DeviceDataManager.swift
+@@ -1646,6 +1646,7 @@ extension DeviceDataManager: TherapySettingsViewModelDelegate {
+             settings.basalRateSchedule = therapySettings.basalRateSchedule
+             settings.maximumBasalRatePerHour = therapySettings.maximumBasalRatePerHour
+             settings.maximumBolus = therapySettings.maximumBolus
++            settings.maximumAutomaticBolusIOB = therapySettings.maximumAutomaticBolusIOB
+             settings.defaultRapidActingModel = therapySettings.defaultRapidActingModel
+             settings.carbRatioSchedule = therapySettings.carbRatioSchedule
+             settings.insulinSensitivitySchedule = therapySettings.insulinSensitivitySchedule
+diff --git a/Loop/Managers/LoopDataManager.swift b/Loop/Managers/LoopDataManager.swift
+index 2319f4ec..9d5d6f8a 100644
+--- a/Loop/Managers/LoopDataManager.swift
++++ b/Loop/Managers/LoopDataManager.swift
+@@ -1792,8 +1792,8 @@ extension LoopDataManager {
+ 
+             let dosingRecommendation: AutomaticDoseRecommendation?
+ 
+-            // automaticDosingIOBLimit calculated from the user entered maxBolus
+-            let automaticDosingIOBLimit = maxBolus! * 2.0
++            // automaticDosingIOBLimit uses user setting if available, otherwise defaults to 2x maxBolus
++            let automaticDosingIOBLimit = settings.maximumAutomaticBolusIOB ?? (maxBolus! * 2.0)
+             let iobHeadroom = automaticDosingIOBLimit - self.insulinOnBoard!.value
+ 
+             switch settings.automaticDosingStrategy {
+@@ -2449,6 +2449,7 @@ extension LoopDataManager {
+                             overridePresets: settings.overridePresets,
+                             maximumBasalRatePerHour: settings.maximumBasalRatePerHour,
+                             maximumBolus: settings.maximumBolus,
++                            maximumAutomaticBolusIOB: settings.maximumAutomaticBolusIOB,
+                             suspendThreshold: settings.suspendThreshold,
+                             insulinSensitivitySchedule: settings.insulinSensitivitySchedule,
+                             carbRatioSchedule: settings.carbRatioSchedule,
+@@ -2467,6 +2468,7 @@ extension LoopDataManager {
+                 settings.legacyWorkoutTargetRange = newValue.correctionRangeOverrides?.workout
+                 settings.suspendThreshold = newValue.suspendThreshold
+                 settings.maximumBolus = newValue.maximumBolus
++                settings.maximumAutomaticBolusIOB = newValue.maximumAutomaticBolusIOB
+                 settings.maximumBasalRatePerHour = newValue.maximumBasalRatePerHour
+                 settings.overridePresets = newValue.overridePresets ?? []
+             }
+diff --git a/LoopCore/LoopSettings.swift b/LoopCore/LoopSettings.swift
+index 82ad76b6..439207cd 100644
+--- a/LoopCore/LoopSettings.swift
++++ b/LoopCore/LoopSettings.swift
+@@ -69,6 +69,8 @@ public struct LoopSettings: Equatable {
+ 
+     public var maximumBolus: Double?
+ 
++    public var maximumAutomaticBolusIOB: Double?
++
+     public var suspendThreshold: GlucoseThreshold? = nil
+     
+     public var automaticDosingStrategy: AutomaticDosingStrategy = .tempBasalOnly
+@@ -92,6 +94,7 @@ public struct LoopSettings: Equatable {
+         preMealOverride: TemporaryScheduleOverride? = nil,
+         maximumBasalRatePerHour: Double? = nil,
+         maximumBolus: Double? = nil,
++        maximumAutomaticBolusIOB: Double? = nil,
+         suspendThreshold: GlucoseThreshold? = nil,
+         automaticDosingStrategy: AutomaticDosingStrategy = .tempBasalOnly,
+         defaultRapidActingModel: ExponentialInsulinModelPreset? = nil
+@@ -108,6 +111,7 @@ public struct LoopSettings: Equatable {
+         self.preMealOverride = preMealOverride
+         self.maximumBasalRatePerHour = maximumBasalRatePerHour
+         self.maximumBolus = maximumBolus
++        self.maximumAutomaticBolusIOB = maximumAutomaticBolusIOB
+         self.suspendThreshold = suspendThreshold
+         self.automaticDosingStrategy = automaticDosingStrategy
+         self.defaultRapidActingModel = defaultRapidActingModel
+@@ -268,6 +272,8 @@ extension LoopSettings: RawRepresentable {
+ 
+         self.maximumBolus = rawValue["maximumBolus"] as? Double
+ 
++        self.maximumAutomaticBolusIOB = rawValue["maximumAutomaticBolusIOB"] as? Double
++
+         if let rawThreshold = rawValue["minimumBGGuard"] as? GlucoseThreshold.RawValue {
+             self.suspendThreshold = GlucoseThreshold(rawValue: rawThreshold)
+         }
+@@ -293,6 +299,7 @@ extension LoopSettings: RawRepresentable {
+         raw["scheduleOverride"] = scheduleOverride?.rawValue
+         raw["maximumBasalRatePerHour"] = maximumBasalRatePerHour
+         raw["maximumBolus"] = maximumBolus
++        raw["maximumAutomaticBolusIOB"] = maximumAutomaticBolusIOB
+         raw["minimumBGGuard"] = suspendThreshold?.rawValue
+         raw["dosingStrategy"] = automaticDosingStrategy.rawValue
+         
+Submodule LoopKit contains modified content
+diff --git a/LoopKit/DeliveryLimits.swift b/LoopKit/DeliveryLimits.swift
 index 28a6a591..6d213f7e 100644
---- a/DeliveryLimits.swift
-+++ b/DeliveryLimits.swift
+--- a/LoopKit/DeliveryLimits.swift
++++ b/LoopKit/DeliveryLimits.swift
 @@ -12,14 +12,16 @@ public struct DeliveryLimits: Equatable {
      public enum Setting: Equatable {
          case maximumBasalRate
@@ -62,10 +141,10 @@ index 28a6a591..6d213f7e 100644
          }
      }
  }
-diff --git a/Extensions/Guardrail+Settings.swift b/Extensions/Guardrail+Settings.swift
+diff --git a/LoopKit/Extensions/Guardrail+Settings.swift b/LoopKit/Extensions/Guardrail+Settings.swift
 index 1c8398fe..4eb3864c 100644
---- a/Extensions/Guardrail+Settings.swift
-+++ b/Extensions/Guardrail+Settings.swift
+--- a/LoopKit/Extensions/Guardrail+Settings.swift
++++ b/LoopKit/Extensions/Guardrail+Settings.swift
 @@ -172,4 +172,21 @@ public extension Guardrail where Value == HKQuantity {
              guardrail.absoluteBounds.contains(HKQuantity(unit: .internationalUnit(), doubleValue: $0))
          }
@@ -88,10 +167,10 @@ index 1c8398fe..4eb3864c 100644
 +        )
 +    }
  }
-diff --git a/Resources/Localizable.xcstrings b/Resources/Localizable.xcstrings
+diff --git a/LoopKit/Resources/Localizable.xcstrings b/LoopKit/Resources/Localizable.xcstrings
 index 8e241ec8..3c04a931 100644
---- a/Resources/Localizable.xcstrings
-+++ b/Resources/Localizable.xcstrings
+--- a/LoopKit/Resources/Localizable.xcstrings
++++ b/LoopKit/Resources/Localizable.xcstrings
 @@ -8291,6 +8291,12 @@
          }
        }
@@ -105,10 +184,10 @@ index 8e241ec8..3c04a931 100644
      "mg/dL/min" : {
        "comment" : "The short unit display string for milligrams per liter per minute",
        "localizations" : {
-diff --git a/TherapySettings.swift b/TherapySettings.swift
+diff --git a/LoopKit/TherapySettings.swift b/LoopKit/TherapySettings.swift
 index dd4de7bb..efaa7cb6 100644
---- a/TherapySettings.swift
-+++ b/TherapySettings.swift
+--- a/LoopKit/TherapySettings.swift
++++ b/LoopKit/TherapySettings.swift
 @@ -20,6 +20,8 @@ public struct TherapySettings: Equatable {
  
      public var maximumBolus: Double?
@@ -166,10 +245,10 @@ index dd4de7bb..efaa7cb6 100644
          case suspendThreshold
          case insulinSensitivitySchedule
          case carbRatioSchedule
-diff --git a/Resources/Localizable.xcstrings b/Resources/Localizable.xcstrings
+diff --git a/LoopKitUI/Resources/Localizable.xcstrings b/LoopKitUI/Resources/Localizable.xcstrings
 index f44dff2f..6ca72fc0 100644
---- a/Resources/Localizable.xcstrings
-+++ b/Resources/Localizable.xcstrings
+--- a/LoopKitUI/Resources/Localizable.xcstrings
++++ b/LoopKitUI/Resources/Localizable.xcstrings
 @@ -15335,6 +15335,9 @@
          }
        }
@@ -190,10 +269,10 @@ index f44dff2f..6ca72fc0 100644
      "Low Pre-Meal Value" : {
        "comment" : "Title text for the low pre-meal value warning",
        "localizations" : {
-diff --git a/ViewModels/TherapySettingsViewModel.swift b/ViewModels/TherapySettingsViewModel.swift
+diff --git a/LoopKitUI/ViewModels/TherapySettingsViewModel.swift b/LoopKitUI/ViewModels/TherapySettingsViewModel.swift
 index 3650ef60..256cdd30 100644
---- a/ViewModels/TherapySettingsViewModel.swift
-+++ b/ViewModels/TherapySettingsViewModel.swift
+--- a/LoopKitUI/ViewModels/TherapySettingsViewModel.swift
++++ b/LoopKitUI/ViewModels/TherapySettingsViewModel.swift
 @@ -177,6 +177,7 @@ extension TherapySettingsViewModel {
      public func saveDeliveryLimits(limits: DeliveryLimits) {
          therapySettings.maximumBasalRatePerHour = limits.maximumBasalRate?.doubleValue(for: .internationalUnitsPerHour)
@@ -202,10 +281,10 @@ index 3650ef60..256cdd30 100644
          delegate?.saveCompletion(therapySettings: therapySettings)
      }
      
-diff --git a/Views/Settings Editors/DeliveryLimitsEditor.swift b/Views/Settings Editors/DeliveryLimitsEditor.swift
+diff --git a/LoopKitUI/Views/Settings Editors/DeliveryLimitsEditor.swift b/LoopKitUI/Views/Settings Editors/DeliveryLimitsEditor.swift
 index aa3c100c..506fc53d 100644
---- a/Views/Settings Editors/DeliveryLimitsEditor.swift	
-+++ b/Views/Settings Editors/DeliveryLimitsEditor.swift	
+--- a/LoopKitUI/Views/Settings Editors/DeliveryLimitsEditor.swift	
++++ b/LoopKitUI/Views/Settings Editors/DeliveryLimitsEditor.swift	
 @@ -78,8 +78,12 @@ public struct DeliveryLimitsEditor: View {
              HKQuantity(unit: .internationalUnit(), doubleValue: $0)
          }
@@ -335,10 +414,10 @@ index aa3c100c..506fc53d 100644
          }
      }
  }
-diff --git a/Views/Settings Editors/TherapySettingsView.swift b/Views/Settings Editors/TherapySettingsView.swift
+diff --git a/LoopKitUI/Views/Settings Editors/TherapySettingsView.swift b/LoopKitUI/Views/Settings Editors/TherapySettingsView.swift
 index 1a11c629..a24e8021 100644
---- a/Views/Settings Editors/TherapySettingsView.swift	
-+++ b/Views/Settings Editors/TherapySettingsView.swift	
+--- a/LoopKitUI/Views/Settings Editors/TherapySettingsView.swift
++++ b/LoopKitUI/Views/Settings Editors/TherapySettingsView.swift
 @@ -281,6 +281,10 @@ extension TherapySettingsView {
              self.maxBasalRateItem
              SettingsDivider()
@@ -376,92 +455,3 @@ index 1a11c629..a24e8021 100644
      private var insulinModelSection: Card {
          card(for: .insulinModel) {
 
-diff --git a/Managers/DeviceDataManager.swift b/Managers/DeviceDataManager.swift
-index 2751f18f..bcf69b8c 100644
---- a/Managers/DeviceDataManager.swift
-+++ b/Managers/DeviceDataManager.swift
-@@ -1646,6 +1646,7 @@ extension DeviceDataManager: TherapySettingsViewModelDelegate {
-             settings.basalRateSchedule = therapySettings.basalRateSchedule
-             settings.maximumBasalRatePerHour = therapySettings.maximumBasalRatePerHour
-             settings.maximumBolus = therapySettings.maximumBolus
-+            settings.maximumAutomaticBolusIOB = therapySettings.maximumAutomaticBolusIOB
-             settings.defaultRapidActingModel = therapySettings.defaultRapidActingModel
-             settings.carbRatioSchedule = therapySettings.carbRatioSchedule
-             settings.insulinSensitivitySchedule = therapySettings.insulinSensitivitySchedule
-diff --git a/Managers/LoopDataManager.swift b/Managers/LoopDataManager.swift
-index 2319f4ec..9d5d6f8a 100644
---- a/Managers/LoopDataManager.swift
-+++ b/Managers/LoopDataManager.swift
-@@ -1792,8 +1792,8 @@ extension LoopDataManager {
- 
-             let dosingRecommendation: AutomaticDoseRecommendation?
- 
--            // automaticDosingIOBLimit calculated from the user entered maxBolus
--            let automaticDosingIOBLimit = maxBolus! * 2.0
-+            // automaticDosingIOBLimit uses user setting if available, otherwise defaults to 2x maxBolus
-+            let automaticDosingIOBLimit = settings.maximumAutomaticBolusIOB ?? (maxBolus! * 2.0)
-             let iobHeadroom = automaticDosingIOBLimit - self.insulinOnBoard!.value
- 
-             switch settings.automaticDosingStrategy {
-@@ -2449,6 +2449,7 @@ extension LoopDataManager {
-                             overridePresets: settings.overridePresets,
-                             maximumBasalRatePerHour: settings.maximumBasalRatePerHour,
-                             maximumBolus: settings.maximumBolus,
-+                            maximumAutomaticBolusIOB: settings.maximumAutomaticBolusIOB,
-                             suspendThreshold: settings.suspendThreshold,
-                             insulinSensitivitySchedule: settings.insulinSensitivitySchedule,
-                             carbRatioSchedule: settings.carbRatioSchedule,
-@@ -2467,6 +2468,7 @@ extension LoopDataManager {
-                 settings.legacyWorkoutTargetRange = newValue.correctionRangeOverrides?.workout
-                 settings.suspendThreshold = newValue.suspendThreshold
-                 settings.maximumBolus = newValue.maximumBolus
-+                settings.maximumAutomaticBolusIOB = newValue.maximumAutomaticBolusIOB
-                 settings.maximumBasalRatePerHour = newValue.maximumBasalRatePerHour
-                 settings.overridePresets = newValue.overridePresets ?? []
-             }
-diff --git a/LoopSettings.swift b/LoopSettings.swift
-index 82ad76b6..439207cd 100644
---- a/LoopSettings.swift
-+++ b/LoopSettings.swift
-@@ -69,6 +69,8 @@ public struct LoopSettings: Equatable {
- 
-     public var maximumBolus: Double?
- 
-+    public var maximumAutomaticBolusIOB: Double?
-+
-     public var suspendThreshold: GlucoseThreshold? = nil
-     
-     public var automaticDosingStrategy: AutomaticDosingStrategy = .tempBasalOnly
-@@ -92,6 +94,7 @@ public struct LoopSettings: Equatable {
-         preMealOverride: TemporaryScheduleOverride? = nil,
-         maximumBasalRatePerHour: Double? = nil,
-         maximumBolus: Double? = nil,
-+        maximumAutomaticBolusIOB: Double? = nil,
-         suspendThreshold: GlucoseThreshold? = nil,
-         automaticDosingStrategy: AutomaticDosingStrategy = .tempBasalOnly,
-         defaultRapidActingModel: ExponentialInsulinModelPreset? = nil
-@@ -108,6 +111,7 @@ public struct LoopSettings: Equatable {
-         self.preMealOverride = preMealOverride
-         self.maximumBasalRatePerHour = maximumBasalRatePerHour
-         self.maximumBolus = maximumBolus
-+        self.maximumAutomaticBolusIOB = maximumAutomaticBolusIOB
-         self.suspendThreshold = suspendThreshold
-         self.automaticDosingStrategy = automaticDosingStrategy
-         self.defaultRapidActingModel = defaultRapidActingModel
-@@ -268,6 +272,8 @@ extension LoopSettings: RawRepresentable {
- 
-         self.maximumBolus = rawValue["maximumBolus"] as? Double
- 
-+        self.maximumAutomaticBolusIOB = rawValue["maximumAutomaticBolusIOB"] as? Double
-+
-         if let rawThreshold = rawValue["minimumBGGuard"] as? GlucoseThreshold.RawValue {
-             self.suspendThreshold = GlucoseThreshold(rawValue: rawThreshold)
-         }
-@@ -293,6 +299,7 @@ extension LoopSettings: RawRepresentable {
-         raw["scheduleOverride"] = scheduleOverride?.rawValue
-         raw["maximumBasalRatePerHour"] = maximumBasalRatePerHour
-         raw["maximumBolus"] = maximumBolus
-+        raw["maximumAutomaticBolusIOB"] = maximumAutomaticBolusIOB
-         raw["minimumBGGuard"] = suspendThreshold?.rawValue
-         raw["dosingStrategy"] = automaticDosingStrategy.rawValue
-         
