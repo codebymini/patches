@@ -1,0 +1,467 @@
+# Max IOB for Automatic Boluses Patch
+# This patch adds a configurable maximum IOB setting for automatic boluses
+# Defaults to 2x maximum bolus if not set
+#
+# To apply:
+#   cd LoopKit && git apply ../patches/max_iob_automatic_boluses.patch && cd ..
+#   cd Loop && git apply ../patches/max_iob_automatic_boluses.patch && cd ..
+#
+# To revert:
+#   cd LoopKit && git apply -R ../patches/max_iob_automatic_boluses.patch && cd ..
+#   cd Loop && git apply -R ../patches/max_iob_automatic_boluses.patch && cd ..
+
+diff --git a/DeliveryLimits.swift b/DeliveryLimits.swift
+index 28a6a591..6d213f7e 100644
+--- a/DeliveryLimits.swift
++++ b/DeliveryLimits.swift
+@@ -12,14 +12,16 @@ public struct DeliveryLimits: Equatable {
+     public enum Setting: Equatable {
+         case maximumBasalRate
+         case maximumBolus
++        case maximumAutomaticBolusIOB
+     }
+ 
+     private var settings: [Setting: HKQuantity]
+ 
+-    public init(maximumBasalRate: HKQuantity?, maximumBolus: HKQuantity?) {
++    public init(maximumBasalRate: HKQuantity?, maximumBolus: HKQuantity?, maximumAutomaticBolusIOB: HKQuantity? = nil) {
+         settings = [:]
+         settings[.maximumBasalRate] = maximumBasalRate
+         settings[.maximumBolus] = maximumBolus
++        settings[.maximumAutomaticBolusIOB] = maximumAutomaticBolusIOB
+     }
+ 
+     public var maximumBasalRate: HKQuantity? {
+@@ -31,6 +33,11 @@ public struct DeliveryLimits: Equatable {
+         get { settings[.maximumBolus] }
+         set { settings[.maximumBolus] = newValue }
+     }
++
++    public var maximumAutomaticBolusIOB: HKQuantity? {
++        get { settings[.maximumAutomaticBolusIOB] }
++        set { settings[.maximumAutomaticBolusIOB] = newValue }
++    }
+ }
+ 
+ public extension DeliveryLimits.Setting {
+@@ -41,6 +48,8 @@ public extension DeliveryLimits.Setting {
+             return LocalizedString("Maximum Basal Rate", comment: "Title text for maximum basal rate configuration")
+         case .maximumBolus:
+             return LocalizedString("Maximum Bolus", comment: "Title text for maximum bolus configuration")
++        case .maximumAutomaticBolusIOB:
++            return LocalizedString("Maximum IOB for Automatic Boluses", comment: "Title text for maximum IOB for automatic boluses configuration")
+         }
+     }
+     
+@@ -50,6 +59,8 @@ public extension DeliveryLimits.Setting {
+             return String(format: LocalizedString("Maximum Basal Rate is the highest temporary basal rate %1$@ is allowed to set.", comment: "Descriptive text for maximum basal rate (1: app name)"), appName)
+         case .maximumBolus:
+             return LocalizedString("Maximum Bolus is the highest bolus amount you can deliver at one time to cover carbs or bring down high glucose.", comment: "Descriptive text for maximum bolus")
++        case .maximumAutomaticBolusIOB:
++            return LocalizedString("Maximum IOB for Automatic Boluses is the maximum insulin on board allowed when automatic boluses are delivered. If not set, it defaults to 2x your maximum bolus.", comment: "Descriptive text for maximum IOB for automatic boluses")
+         }
+     }
+ }
+diff --git a/Extensions/Guardrail+Settings.swift b/Extensions/Guardrail+Settings.swift
+index 1c8398fe..4eb3864c 100644
+--- a/Extensions/Guardrail+Settings.swift
++++ b/Extensions/Guardrail+Settings.swift
+@@ -172,4 +172,21 @@ public extension Guardrail where Value == HKQuantity {
+             guardrail.absoluteBounds.contains(HKQuantity(unit: .internationalUnit(), doubleValue: $0))
+         }
+     }
++
++    static func maximumAutomaticBolusIOB(maximumBolus: Double?) -> Guardrail {
++        // IOB can be higher than a single bolus, so we allow up to 60 units
++        // Recommended range is typically 2x to 4x the maximum bolus
++        let minIOB: Double = 1.0
++        let maxIOB: Double = 60.0
++        let recommendedMin = maximumBolus.map { max($0 * 1.5, minIOB) } ?? minIOB
++        let recommendedMax = maximumBolus.map { min($0 * 4.0, maxIOB) } ?? maxIOB
++        let startingSuggestion = maximumBolus.map { $0 * 2.0 } ?? 10.0
++        
++        return Guardrail(
++            absoluteBounds: minIOB...maxIOB,
++            recommendedBounds: recommendedMin...recommendedMax,
++            unit: .internationalUnit(),
++            startingSuggestion: startingSuggestion.clamped(to: recommendedMin...recommendedMax)
++        )
++    }
+ }
+diff --git a/Resources/Localizable.xcstrings b/Resources/Localizable.xcstrings
+index 8e241ec8..3c04a931 100644
+--- a/Resources/Localizable.xcstrings
++++ b/Resources/Localizable.xcstrings
+@@ -8291,6 +8291,12 @@
+         }
+       }
+     },
++    "Maximum IOB for Automatic Boluses" : {
++      "comment" : "Title text for maximum IOB for automatic boluses configuration"
++    },
++    "Maximum IOB for Automatic Boluses is the maximum insulin on board allowed when automatic boluses are delivered. If not set, it defaults to 2x your maximum bolus." : {
++      "comment" : "Descriptive text for maximum IOB for automatic boluses"
++    },
+     "mg/dL/min" : {
+       "comment" : "The short unit display string for milligrams per liter per minute",
+       "localizations" : {
+diff --git a/TherapySettings.swift b/TherapySettings.swift
+index dd4de7bb..efaa7cb6 100644
+--- a/TherapySettings.swift
++++ b/TherapySettings.swift
+@@ -20,6 +20,8 @@ public struct TherapySettings: Equatable {
+ 
+     public var maximumBolus: Double?
+ 
++    public var maximumAutomaticBolusIOB: Double?
++
+     public var suspendThreshold: GlucoseThreshold?
+ 
+     public var insulinSensitivitySchedule: InsulinSensitivitySchedule?
+@@ -49,6 +51,7 @@ public struct TherapySettings: Equatable {
+         overridePresets: [TemporaryScheduleOverridePreset]? = nil,
+         maximumBasalRatePerHour: Double? = nil,
+         maximumBolus: Double? = nil,
++        maximumAutomaticBolusIOB: Double? = nil,
+         suspendThreshold: GlucoseThreshold? = nil,
+         insulinSensitivitySchedule: InsulinSensitivitySchedule? = nil,
+         carbRatioSchedule: CarbRatioSchedule? = nil,
+@@ -60,6 +63,7 @@ public struct TherapySettings: Equatable {
+         self.overridePresets = overridePresets
+         self.maximumBasalRatePerHour = maximumBasalRatePerHour
+         self.maximumBolus = maximumBolus
++        self.maximumAutomaticBolusIOB = maximumAutomaticBolusIOB
+         self.suspendThreshold = suspendThreshold
+         self.insulinSensitivitySchedule = insulinSensitivitySchedule
+         self.carbRatioSchedule = carbRatioSchedule
+@@ -76,6 +80,7 @@ extension TherapySettings: Codable {
+         let correctionRangeOverrides = try container.decodeIfPresent(CorrectionRangeOverrides.self, forKey: .correctionRangeOverrides)
+         let maximumBasalRatePerHour = try container.decodeIfPresent(Double.self, forKey: .maximumBasalRatePerHour)
+         let maximumBolus = try container.decodeIfPresent(Double.self, forKey: .maximumBolus)
++        let maximumAutomaticBolusIOB = try container.decodeIfPresent(Double.self, forKey: .maximumAutomaticBolusIOB)
+         let suspendThreshold = try container.decodeIfPresent(GlucoseThreshold.self, forKey: .suspendThreshold)
+         let insulinSensitivitySchedule = try container.decodeIfPresent(InsulinSensitivitySchedule.self, forKey: .insulinSensitivitySchedule)
+         let carbRatioSchedule = try container.decodeIfPresent(CarbRatioSchedule.self, forKey: .carbRatioSchedule)
+@@ -86,6 +91,7 @@ extension TherapySettings: Codable {
+                   correctionRangeOverrides: correctionRangeOverrides,
+                   maximumBasalRatePerHour: maximumBasalRatePerHour,
+                   maximumBolus: maximumBolus,
++                  maximumAutomaticBolusIOB: maximumAutomaticBolusIOB,
+                   suspendThreshold: suspendThreshold,
+                   insulinSensitivitySchedule: insulinSensitivitySchedule,
+                   carbRatioSchedule: carbRatioSchedule,
+@@ -99,6 +105,7 @@ extension TherapySettings: Codable {
+         try container.encodeIfPresent(correctionRangeOverrides, forKey: .correctionRangeOverrides)
+         try container.encodeIfPresent(maximumBasalRatePerHour, forKey: .maximumBasalRatePerHour)
+         try container.encodeIfPresent(maximumBolus, forKey: .maximumBolus)
++        try container.encodeIfPresent(maximumAutomaticBolusIOB, forKey: .maximumAutomaticBolusIOB)
+         try container.encodeIfPresent(suspendThreshold, forKey: .suspendThreshold)
+         try container.encodeIfPresent(insulinSensitivitySchedule, forKey: .insulinSensitivitySchedule)
+         try container.encodeIfPresent(carbRatioSchedule, forKey: .carbRatioSchedule)
+@@ -111,6 +118,7 @@ extension TherapySettings: Codable {
+         case correctionRangeOverrides
+         case maximumBasalRatePerHour
+         case maximumBolus
++        case maximumAutomaticBolusIOB
+         case suspendThreshold
+         case insulinSensitivitySchedule
+         case carbRatioSchedule
+diff --git a/Resources/Localizable.xcstrings b/Resources/Localizable.xcstrings
+index f44dff2f..6ca72fc0 100644
+--- a/Resources/Localizable.xcstrings
++++ b/Resources/Localizable.xcstrings
+@@ -15335,6 +15335,9 @@
+         }
+       }
+     },
++    "High Maximum IOB for Automatic Boluses" : {
++      "comment" : "Title text for high maximum IOB for automatic boluses warning"
++    },
+     "High Pre-Meal Value" : {
+       "comment" : "Title text for the low pre-meal value warning",
+       "localizations" : {
+@@ -17926,6 +17929,9 @@
+         }
+       }
+     },
++    "Low Maximum IOB for Automatic Boluses" : {
++      "comment" : "Title text for low maximum IOB for automatic boluses warning"
++    },
+     "Low Pre-Meal Value" : {
+       "comment" : "Title text for the low pre-meal value warning",
+       "localizations" : {
+diff --git a/ViewModels/TherapySettingsViewModel.swift b/ViewModels/TherapySettingsViewModel.swift
+index 3650ef60..256cdd30 100644
+--- a/ViewModels/TherapySettingsViewModel.swift
++++ b/ViewModels/TherapySettingsViewModel.swift
+@@ -177,6 +177,7 @@ extension TherapySettingsViewModel {
+     public func saveDeliveryLimits(limits: DeliveryLimits) {
+         therapySettings.maximumBasalRatePerHour = limits.maximumBasalRate?.doubleValue(for: .internationalUnitsPerHour)
+         therapySettings.maximumBolus = limits.maximumBolus?.doubleValue(for: .internationalUnit())
++        therapySettings.maximumAutomaticBolusIOB = limits.maximumAutomaticBolusIOB?.doubleValue(for: .internationalUnit())
+         delegate?.saveCompletion(therapySettings: therapySettings)
+     }
+     
+diff --git a/Views/Settings Editors/DeliveryLimitsEditor.swift b/Views/Settings Editors/DeliveryLimitsEditor.swift
+index aa3c100c..506fc53d 100644
+--- a/Views/Settings Editors/DeliveryLimitsEditor.swift	
++++ b/Views/Settings Editors/DeliveryLimitsEditor.swift	
+@@ -78,8 +78,12 @@ public struct DeliveryLimitsEditor: View {
+             HKQuantity(unit: .internationalUnit(), doubleValue: $0)
+         }
+         
++        let maxAutomaticBolusIOB = therapySettingsViewModel.therapySettings.maximumAutomaticBolusIOB.map {
++            HKQuantity(unit: .internationalUnit(), doubleValue: $0)
++        }
++        
+         self.init(
+-            value: DeliveryLimits(maximumBasalRate: maxBasal, maximumBolus: maxBolus),
++            value: DeliveryLimits(maximumBasalRate: maxBasal, maximumBolus: maxBolus, maximumAutomaticBolusIOB: maxAutomaticBolusIOB),
+             supportedBasalRates: therapySettingsViewModel.pumpSupportedIncrements()?.basalRates ?? [],
+             scheduledBasalRange: therapySettingsViewModel.therapySettings.basalRateSchedule?.valueRange(),
+             supportedMaximumBolusVolumes: therapySettingsViewModel.pumpSupportedIncrements()?.maximumBolusVolumes ?? [],
+@@ -136,6 +140,7 @@ public struct DeliveryLimitsEditor: View {
+             cards: {
+                 maximumBasalRateCard
+                 maximumBolusCard
++                maximumAutomaticBolusIOBCard
+             },
+             actionAreaContent: {
+                 instructionalContentIfNecessary
+@@ -161,6 +166,7 @@ public struct DeliveryLimitsEditor: View {
+         guard value.maximumBasalRate != nil, value.maximumBolus != nil else {
+             return .disabled
+         }
++        // maximumAutomaticBolusIOB is optional, so we don't require it
+ 
+         if isSyncing {
+             return .loading
+@@ -272,6 +278,56 @@ public struct DeliveryLimitsEditor: View {
+             )
+         }
+     }
++
++    var maximumAutomaticBolusIOBGuardrail: Guardrail<HKQuantity> {
++        return Guardrail.maximumAutomaticBolusIOB(maximumBolus: value.maximumBolus?.doubleValue(for: .internationalUnit()))
++    }
++
++    var maximumAutomaticBolusIOBCard: Card {
++        Card {
++            SettingDescription(text: Text(DeliveryLimits.Setting.maximumAutomaticBolusIOB.localizedDescriptiveText(appName: appName)),
++                               informationalContent: { TherapySetting.deliveryLimits.helpScreen() })
++            ExpandableSetting(
++                isEditing: Binding(
++                    get: { self.settingBeingEdited == .maximumAutomaticBolusIOB },
++                    set: { isEditing in
++                        withAnimation {
++                            self.settingBeingEdited = isEditing ? .maximumAutomaticBolusIOB : nil
++                        }
++                    }
++                ),
++                leadingValueContent: {
++                    Text(DeliveryLimits.Setting.maximumAutomaticBolusIOB.title)
++                },
++                trailingValueContent: {
++                    GuardrailConstrainedQuantityView(
++                        value: value.maximumAutomaticBolusIOB,
++                        unit: .internationalUnit(),
++                        guardrail: maximumAutomaticBolusIOBGuardrail,
++                        isEditing: settingBeingEdited == .maximumAutomaticBolusIOB,
++                        forceDisableAnimations: true
++                    )
++                },
++                expandedContent: {
++                    FractionalQuantityPicker(
++                        value: Binding(
++                            get: { self.value.maximumAutomaticBolusIOB ?? self.maximumAutomaticBolusIOBGuardrail.startingSuggestion ?? self.maximumAutomaticBolusIOBGuardrail.recommendedBounds.upperBound },
++                            set: { newValue in
++                                withAnimation {
++                                    self.value.maximumAutomaticBolusIOB = newValue
++                                }
++                            }
++                        ),
++                        unit: .internationalUnit(),
++                        guardrail: self.maximumAutomaticBolusIOBGuardrail,
++                        selectableValues: self.selectableMaximumBolusVolumes,
++                        usageContext: .independent
++                    )
++                    .accessibility(identifier: "max_automatic_bolus_iob_picker")
++                }
++            )
++        }
++    }
+     
+     private var instructionalContentIfNecessary: some View {
+         return Group {
+@@ -316,6 +372,15 @@ public struct DeliveryLimitsEditor: View {
+             crossedThresholds[.maximumBolus] = threshold
+         }
+ 
++        if let maxIOB = value.maximumAutomaticBolusIOB {
++            switch maximumAutomaticBolusIOBGuardrail.classification(for: maxIOB) {
++            case .withinRecommendedRange:
++                break
++            case .outsideRecommendedRange(let threshold):
++                crossedThresholds[.maximumAutomaticBolusIOB] = threshold
++            }
++        }
++
+         return crossedThresholds
+     }
+ 
+@@ -441,16 +506,23 @@ struct DeliveryLimitsGuardrailWarning: View {
+                 case .aboveRecommended, .maximum:
+                     title = Text(LocalizedString("High Maximum Bolus", comment: "Title text for high maximum bolus warning"))
+                 }
++            case .maximumAutomaticBolusIOB:
++                switch threshold {
++                case .minimum, .belowRecommended:
++                    title = Text(LocalizedString("Low Maximum IOB for Automatic Boluses", comment: "Title text for low maximum IOB for automatic boluses warning"))
++                case .aboveRecommended, .maximum:
++                    title = Text(LocalizedString("High Maximum IOB for Automatic Boluses", comment: "Title text for high maximum IOB for automatic boluses warning"))
++                }
+             }
+ 
+             return GuardrailWarning(therapySetting: .deliveryLimits, title: title, threshold: threshold)
+-        case 2:
++        case 2, 3:
+             return GuardrailWarning(
+                 therapySetting: .deliveryLimits,
+                 title: Text(LocalizedString("Delivery Limits", comment: "Title text for crossed thresholds guardrail warning")),
+                 thresholds: Array(crossedThresholds.values))
+         default:
+-            preconditionFailure("Unreachable: only two delivery limit settings exist")
++            preconditionFailure("Unreachable: only three delivery limit settings exist")
+         }
+     }
+ }
+diff --git a/Views/Settings Editors/TherapySettingsView.swift b/Views/Settings Editors/TherapySettingsView.swift
+index 1a11c629..a24e8021 100644
+--- a/Views/Settings Editors/TherapySettingsView.swift	
++++ b/Views/Settings Editors/TherapySettingsView.swift	
+@@ -281,6 +281,10 @@ extension TherapySettingsView {
+             self.maxBasalRateItem
+             SettingsDivider()
+             self.maxBolusItem
++            if self.viewModel.therapySettings.maximumAutomaticBolusIOB != nil {
++                SettingsDivider()
++                self.maxAutomaticBolusIOBItem
++            }
+         }
+     }
+     
+@@ -322,6 +326,24 @@ extension TherapySettingsView {
+         }
+         .accessibilityElement(children: .combine)
+     }
++    
++    private var maxAutomaticBolusIOBItem: some View {
++        HStack {
++            Text(DeliveryLimits.Setting.maximumAutomaticBolusIOB.title)
++            Spacer()
++            if let maximumBolusVolumes = self.viewModel.pumpSupportedIncrements()?.maximumBolusVolumes {
++                GuardrailConstrainedQuantityView(
++                    value: self.viewModel.therapySettings.maximumAutomaticBolusIOB.map { HKQuantity(unit: .internationalUnit(), doubleValue: $0) },
++                    unit: .internationalUnit(),
++                    guardrail: .maximumAutomaticBolusIOB(maximumBolus: self.viewModel.therapySettings.maximumBolus),
++                    isEditing: false,
++                    // Workaround for strange animation behavior on appearance
++                    forceDisableAnimations: true
++                )
++            }
++        }
++        .accessibilityElement(children: .combine)
++    }
+         
+     private var insulinModelSection: Card {
+         card(for: .insulinModel) {
+
+diff --git a/Managers/DeviceDataManager.swift b/Managers/DeviceDataManager.swift
+index 2751f18f..bcf69b8c 100644
+--- a/Managers/DeviceDataManager.swift
++++ b/Managers/DeviceDataManager.swift
+@@ -1646,6 +1646,7 @@ extension DeviceDataManager: TherapySettingsViewModelDelegate {
+             settings.basalRateSchedule = therapySettings.basalRateSchedule
+             settings.maximumBasalRatePerHour = therapySettings.maximumBasalRatePerHour
+             settings.maximumBolus = therapySettings.maximumBolus
++            settings.maximumAutomaticBolusIOB = therapySettings.maximumAutomaticBolusIOB
+             settings.defaultRapidActingModel = therapySettings.defaultRapidActingModel
+             settings.carbRatioSchedule = therapySettings.carbRatioSchedule
+             settings.insulinSensitivitySchedule = therapySettings.insulinSensitivitySchedule
+diff --git a/Managers/LoopDataManager.swift b/Managers/LoopDataManager.swift
+index 2319f4ec..9d5d6f8a 100644
+--- a/Managers/LoopDataManager.swift
++++ b/Managers/LoopDataManager.swift
+@@ -1792,8 +1792,8 @@ extension LoopDataManager {
+ 
+             let dosingRecommendation: AutomaticDoseRecommendation?
+ 
+-            // automaticDosingIOBLimit calculated from the user entered maxBolus
+-            let automaticDosingIOBLimit = maxBolus! * 2.0
++            // automaticDosingIOBLimit uses user setting if available, otherwise defaults to 2x maxBolus
++            let automaticDosingIOBLimit = settings.maximumAutomaticBolusIOB ?? (maxBolus! * 2.0)
+             let iobHeadroom = automaticDosingIOBLimit - self.insulinOnBoard!.value
+ 
+             switch settings.automaticDosingStrategy {
+@@ -2449,6 +2449,7 @@ extension LoopDataManager {
+                             overridePresets: settings.overridePresets,
+                             maximumBasalRatePerHour: settings.maximumBasalRatePerHour,
+                             maximumBolus: settings.maximumBolus,
++                            maximumAutomaticBolusIOB: settings.maximumAutomaticBolusIOB,
+                             suspendThreshold: settings.suspendThreshold,
+                             insulinSensitivitySchedule: settings.insulinSensitivitySchedule,
+                             carbRatioSchedule: settings.carbRatioSchedule,
+@@ -2467,6 +2468,7 @@ extension LoopDataManager {
+                 settings.legacyWorkoutTargetRange = newValue.correctionRangeOverrides?.workout
+                 settings.suspendThreshold = newValue.suspendThreshold
+                 settings.maximumBolus = newValue.maximumBolus
++                settings.maximumAutomaticBolusIOB = newValue.maximumAutomaticBolusIOB
+                 settings.maximumBasalRatePerHour = newValue.maximumBasalRatePerHour
+                 settings.overridePresets = newValue.overridePresets ?? []
+             }
+diff --git a/LoopSettings.swift b/LoopSettings.swift
+index 82ad76b6..439207cd 100644
+--- a/LoopSettings.swift
++++ b/LoopSettings.swift
+@@ -69,6 +69,8 @@ public struct LoopSettings: Equatable {
+ 
+     public var maximumBolus: Double?
+ 
++    public var maximumAutomaticBolusIOB: Double?
++
+     public var suspendThreshold: GlucoseThreshold? = nil
+     
+     public var automaticDosingStrategy: AutomaticDosingStrategy = .tempBasalOnly
+@@ -92,6 +94,7 @@ public struct LoopSettings: Equatable {
+         preMealOverride: TemporaryScheduleOverride? = nil,
+         maximumBasalRatePerHour: Double? = nil,
+         maximumBolus: Double? = nil,
++        maximumAutomaticBolusIOB: Double? = nil,
+         suspendThreshold: GlucoseThreshold? = nil,
+         automaticDosingStrategy: AutomaticDosingStrategy = .tempBasalOnly,
+         defaultRapidActingModel: ExponentialInsulinModelPreset? = nil
+@@ -108,6 +111,7 @@ public struct LoopSettings: Equatable {
+         self.preMealOverride = preMealOverride
+         self.maximumBasalRatePerHour = maximumBasalRatePerHour
+         self.maximumBolus = maximumBolus
++        self.maximumAutomaticBolusIOB = maximumAutomaticBolusIOB
+         self.suspendThreshold = suspendThreshold
+         self.automaticDosingStrategy = automaticDosingStrategy
+         self.defaultRapidActingModel = defaultRapidActingModel
+@@ -268,6 +272,8 @@ extension LoopSettings: RawRepresentable {
+ 
+         self.maximumBolus = rawValue["maximumBolus"] as? Double
+ 
++        self.maximumAutomaticBolusIOB = rawValue["maximumAutomaticBolusIOB"] as? Double
++
+         if let rawThreshold = rawValue["minimumBGGuard"] as? GlucoseThreshold.RawValue {
+             self.suspendThreshold = GlucoseThreshold(rawValue: rawThreshold)
+         }
+@@ -293,6 +299,7 @@ extension LoopSettings: RawRepresentable {
+         raw["scheduleOverride"] = scheduleOverride?.rawValue
+         raw["maximumBasalRatePerHour"] = maximumBasalRatePerHour
+         raw["maximumBolus"] = maximumBolus
++        raw["maximumAutomaticBolusIOB"] = maximumAutomaticBolusIOB
+         raw["minimumBGGuard"] = suspendThreshold?.rawValue
+         raw["dosingStrategy"] = automaticDosingStrategy.rawValue
+         
