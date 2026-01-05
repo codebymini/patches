@@ -142,12 +142,13 @@ if [ $(basename $PWD) = "LoopWorkspace" ]; then
     add_patch "2 hours Lolipop" "2hlollipop" ""
     add_patch "NS Override" "lost_overrides_in_ns" ""
     add_patch "Max IOB for Automatic Boluses" "max_iob_automatic_boluses" ""
+    add_patch "Return Notifications" "return_notifications" ""
 
     echo "Downloading patches, please wait..."
     cd $mytmpdir
     for i in ${!name[@]}
     do
-        curl -fsSLOJ "https://raw.githubusercontent.com/bjorkert/patches/master/${file[$i]}.patch"
+        curl -fsSLOJ "https://raw.githubusercontent.com/codebymini/patches/remote-response/${file[$i]}.patch"
     done
     tput cuu1 && tput el
 

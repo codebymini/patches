@@ -1,0 +1,744 @@
+From 6b2c27f40c946cf8cbdccc6faacaf3a028a6f9aa Mon Sep 17 00:00:00 2001
+From: codebymini <daniel@codebymini.se>
+Date: Mon, 5 Jan 2026 14:17:49 +0100
+Subject: [PATCH] Add return notifications
+
+---
+ NightscoutService/NightscoutService.xcodeproj/project.pbxproj   |  29 ++++
+ NightscoutService/NightscoutServiceKit/NightscoutService.swift  |  86 ++++++++---
+ .../RemoteCommands/APNSJWTManager.swift       |  91 ++++++++++++
+ .../RemoteCommands/OTPSecureMessenger.swift   |  88 ++++++++++++
+ .../RemoteNotificationResponseManager.swift   | 134 ++++++++++++++++++
+ .../BolusRemoteNotification.swift             |   2 +
+ .../CarbRemoteNotification.swift              |   2 +
+ .../OverrideCancelRemoteNotification.swift    |   2 +
+ .../OverrideRemoteNotification.swift          |   2 +
+ .../V1/Notifications/RemoteNotification.swift |  34 +++++
+ .../V1/RemoteCommandSourceV1.swift            |  18 ++-
+ 11 files changed, 468 insertions(+), 20 deletions(-)
+ create mode 100644 NightscoutServiceKit/RemoteCommands/APNSJWTManager.swift
+ create mode 100644 NightscoutServiceKit/RemoteCommands/OTPSecureMessenger.swift
+ create mode 100644 NightscoutServiceKit/RemoteCommands/RemoteNotificationResponseManager.swift
+
+diff --git a/NightscoutService/NightscoutService.xcodeproj/project.pbxproj b/NightscoutService/NightscoutService.xcodeproj/project.pbxproj
+index bc8d19d..1775ce5 100644
+--- a/NightscoutService/NightscoutService.xcodeproj/project.pbxproj
++++ b/NightscoutService/NightscoutService.xcodeproj/project.pbxproj
+@@ -7,6 +7,9 @@
+ 	objects = {
+ 
+ /* Begin PBXBuildFile section */
++		657F99DE2F0BC17B00F732BD /* RemoteNotificationResponseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 657F99DD2F0BC17B00F732BD /* RemoteNotificationResponseManager.swift */; };
++		657F99DF2F0BC17B00F732BD /* APNSJWTManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 657F99DB2F0BC17B00F732BD /* APNSJWTManager.swift */; };
++		657F99E02F0BC17B00F732BD /* OTPSecureMessenger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 657F99DC2F0BC17B00F732BD /* OTPSecureMessenger.swift */; };
+ 		A90E399E22BC76DB0016DFE8 /* TimeInterval.swift in Sources */ = {isa = PBXBuildFile; fileRef = A90E399D22BC76DB0016DFE8 /* TimeInterval.swift */; };
+ 		A90E39A122BC773A0016DFE8 /* NightscoutUploader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A90E39A022BC773A0016DFE8 /* NightscoutUploader.swift */; };
+ 		A90E39A322BC782C0016DFE8 /* SyncCarbObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = A90E39A222BC782C0016DFE8 /* SyncCarbObject.swift */; };
+@@ -69,6 +72,7 @@
+ 		C1C1349D27DD38000097B5AD /* NightscoutServiceKitUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A91BAC3A22BC69B500ABF1BB /* NightscoutServiceKitUI.framework */; };
+ 		C1C1349E27DD38000097B5AD /* NightscoutServiceKitUI.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A91BAC3A22BC69B500ABF1BB /* NightscoutServiceKitUI.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+ 		C1CEBFF429BCC104007FD8A3 /* NightscoutKit in Frameworks */ = {isa = PBXBuildFile; productRef = C1CEBFF329BCC104007FD8A3 /* NightscoutKit */; };
++		657F99E32F0BC17B00F732BD /* SwiftJWT in Frameworks */ = {isa = PBXBuildFile; productRef = 657F99E22F0BC17B00F732BD /* SwiftJWT */; };
+ 		C1E10F012ABF3B190036A416 /* PersistedPumpEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1E10F002ABF3B190036A416 /* PersistedPumpEvent.swift */; };
+ 		C1E703642506BE9400DAB534 /* ObjectIdCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1E703632506BE9400DAB534 /* ObjectIdCache.swift */; };
+ 		C1E7036625070A0E00DAB534 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C1E7036525070A0E00DAB534 /* Assets.xcassets */; };
+@@ -134,6 +138,9 @@
+ /* End PBXCopyFilesBuildPhase section */
+ 
+ /* Begin PBXFileReference section */
++		657F99DB2F0BC17B00F732BD /* APNSJWTManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APNSJWTManager.swift; sourceTree = "<group>"; };
++		657F99DC2F0BC17B00F732BD /* OTPSecureMessenger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OTPSecureMessenger.swift; sourceTree = "<group>"; };
++		657F99DD2F0BC17B00F732BD /* RemoteNotificationResponseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteNotificationResponseManager.swift; sourceTree = "<group>"; };
+ 		A90E399D22BC76DB0016DFE8 /* TimeInterval.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeInterval.swift; sourceTree = "<group>"; };
+ 		A90E39A022BC773A0016DFE8 /* NightscoutUploader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightscoutUploader.swift; sourceTree = "<group>"; };
+ 		A90E39A222BC782C0016DFE8 /* SyncCarbObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncCarbObject.swift; sourceTree = "<group>"; };
+@@ -217,6 +224,7 @@
+ 				C1C1349627DD35060097B5AD /* LoopKit.framework in Frameworks */,
+ 				C1CEBFF429BCC104007FD8A3 /* NightscoutKit in Frameworks */,
+ 				C1B9ACF827DE987400857532 /* OneTimePassword in Frameworks */,
++				657F99E32F0BC17B00F732BD /* SwiftJWT in Frameworks */,
+ 			);
+ 			runOnlyForDeploymentPostprocessing = 0;
+ 		};
+@@ -372,6 +380,9 @@
+ 		A99A115C29AA2870007919CE /* RemoteCommands */ = {
+ 			isa = PBXGroup;
+ 			children = (
++				657F99DB2F0BC17B00F732BD /* APNSJWTManager.swift */,
++				657F99DC2F0BC17B00F732BD /* OTPSecureMessenger.swift */,
++				657F99DD2F0BC17B00F732BD /* RemoteNotificationResponseManager.swift */,
+ 				A9AA6E5729EB06AA008FFA78 /* Actions */,
+ 				A941B08629BCB87500F91340 /* RemoteCommandSource.swift */,
+ 				A98A0C1F29C71E8F0067DE0F /* V1 */,
+@@ -516,6 +527,7 @@
+ 			packageProductDependencies = (
+ 				C1B9ACF727DE987400857532 /* OneTimePassword */,
+ 				C1CEBFF329BCC104007FD8A3 /* NightscoutKit */,
++				657F99E22F0BC17B00F732BD /* SwiftJWT */,
+ 			);
+ 			productName = NightscoutService;
+ 			productReference = A91BAC1B22BC691A00ABF1BB /* NightscoutServiceKit.framework */;
+@@ -646,6 +658,7 @@
+ 			packageReferences = (
+ 				C1B9ACF627DE987400857532 /* XCRemoteSwiftPackageReference "OneTimePassword" */,
+ 				C1CEBFF229BCC104007FD8A3 /* XCRemoteSwiftPackageReference "NightscoutKit" */,
++				657F99E12F0BC17B00F732BD /* XCRemoteSwiftPackageReference "Swift-JWT" */,
+ 			);
+ 			productRefGroup = A91BAC1C22BC691A00ABF1BB /* Products */;
+ 			projectDirPath = "";
+@@ -726,6 +739,9 @@
+ 				A9B007B322BD6FF7000131DE /* LocalizedString.swift in Sources */,
+ 				A941B08729BCB87500F91340 /* RemoteCommandSource.swift in Sources */,
+ 				A941B09229BD4A9F00F91340 /* OverrideCancelRemoteNotification.swift in Sources */,
++				657F99DE2F0BC17B00F732BD /* RemoteNotificationResponseManager.swift in Sources */,
++				657F99DF2F0BC17B00F732BD /* APNSJWTManager.swift in Sources */,
++				657F99E02F0BC17B00F732BD /* OTPSecureMessenger.swift in Sources */,
+ 				C1398D2227C434FB00416AD6 /* Data.swift in Sources */,
+ 				A90E39A522BC791E0016DFE8 /* DoseEntry.swift in Sources */,
+ 				A934B6182358F49300949C8B /* StoredSettings.swift in Sources */,
+@@ -1304,6 +1320,14 @@
+ 				kind = branch;
+ 			};
+ 		};
++		657F99E12F0BC17B00F732BD /* XCRemoteSwiftPackageReference "Swift-JWT" */ = {
++			isa = XCRemoteSwiftPackageReference;
++			repositoryURL = "https://github.com/Kitura/Swift-JWT.git";
++			requirement = {
++				kind = exactVersion;
++				version = 4.0.1;
++			};
++		};
+ /* End XCRemoteSwiftPackageReference section */
+ 
+ /* Begin XCSwiftPackageProductDependency section */
+@@ -1317,6 +1341,11 @@
+ 			package = C1CEBFF229BCC104007FD8A3 /* XCRemoteSwiftPackageReference "NightscoutKit" */;
+ 			productName = NightscoutKit;
+ 		};
++		657F99E22F0BC17B00F732BD /* SwiftJWT */ = {
++			isa = XCSwiftPackageProductDependency;
++			package = 657F99E12F0BC17B00F732BD /* XCRemoteSwiftPackageReference "Swift-JWT" */;
++			productName = SwiftJWT;
++		};
+ /* End XCSwiftPackageProductDependency section */
+ 	};
+ 	rootObject = A91BAC1222BC691A00ABF1BB /* Project object */;
+diff --git a/NightscoutService/NightscoutServiceKit/NightscoutService.swift b/NightscoutService/NightscoutServiceKit/NightscoutService.swift
+index 2d9b5d3..4626630 100644
+--- a/NightscoutService/NightscoutServiceKit/NightscoutService.swift
++++ b/NightscoutService/NightscoutServiceKit/NightscoutService.swift
+@@ -411,25 +411,75 @@ extension NightscoutService: RemoteDataService {
+ 
+ extension NightscoutService: RemoteCommandSourceV1Delegate {
+     
+-    func commandSourceV1(_: RemoteCommandSourceV1, handleAction action: Action) async throws {
++    func commandSourceV1(_: RemoteCommandSourceV1, handleAction action: Action, remoteNotification: RemoteNotification) async throws {
+         
+-        switch action {
+-        case .temporaryScheduleOverride(let overrideCommand):
+-            try await self.serviceDelegate?.enactRemoteOverride(
+-                name: overrideCommand.name,
+-                durationTime: overrideCommand.durationTime,
+-                remoteAddress: overrideCommand.remoteAddress
+-            )
+-        case .cancelTemporaryOverride:
+-            try await self.serviceDelegate?.cancelRemoteOverride()
+-        case .bolusEntry(let bolusCommand):
+-            try await self.serviceDelegate?.deliverRemoteBolus(amountInUnits: bolusCommand.amountInUnits)
+-        case .carbsEntry(let carbCommand):
+-            try await self.serviceDelegate?.deliverRemoteCarbs(
+-                amountInGrams: carbCommand.amountInGrams,
+-                absorptionTime: carbCommand.absorptionTime,
+-                foodType: carbCommand.foodType,
+-                startDate: carbCommand.startDate
++        let returnInfo = remoteNotification.getReturnNotificationInfo()
++        if returnInfo == nil {
++            os_log("No return notification info available, response will not be sent", log: .default, type: .info)
++        } else {
++            os_log("Return notification info available, will send response after command processing", log: .default, type: .info)
++        }
++        
++        var commandType: RemoteNotificationResponseManager.CommandType = .bolus // Default, will be set in switch
++        var success = false
++        var message = ""
++        
++        do {
++            switch action {
++            case .temporaryScheduleOverride(let overrideCommand):
++                commandType = .override
++                try await self.serviceDelegate?.enactRemoteOverride(
++                    name: overrideCommand.name,
++                    durationTime: overrideCommand.durationTime,
++                    remoteAddress: overrideCommand.remoteAddress
++                )
++                success = true
++                message = "Override '\(overrideCommand.name)' enacted successfully"
++                
++            case .cancelTemporaryOverride:
++                commandType = .cancelOverride
++                try await self.serviceDelegate?.cancelRemoteOverride()
++                success = true
++                message = "Override cancelled successfully"
++                
++            case .bolusEntry(let bolusCommand):
++                commandType = .bolus
++                try await self.serviceDelegate?.deliverRemoteBolus(amountInUnits: bolusCommand.amountInUnits)
++                success = true
++                message = String(format: "Bolus of %.2f units delivered successfully", bolusCommand.amountInUnits)
++                
++            case .carbsEntry(let carbCommand):
++                commandType = .carbs
++                try await self.serviceDelegate?.deliverRemoteCarbs(
++                    amountInGrams: carbCommand.amountInGrams,
++                    absorptionTime: carbCommand.absorptionTime,
++                    foodType: carbCommand.foodType,
++                    startDate: carbCommand.startDate
++                )
++                success = true
++                message = String(format: "Carbs entry of %.1f g delivered successfully", carbCommand.amountInGrams)
++            }
++        } catch {
++            message = "Command failed: \(error.localizedDescription)"
++            // Send failure response before rethrowing
++            if let returnInfo = returnInfo {
++                await RemoteNotificationResponseManager.shared.sendResponseNotification(
++                    to: returnInfo,
++                    commandType: commandType,
++                    success: false,
++                    message: message
++                )
++            }
++            throw error
++        }
++        
++        // Send success response
++        if let returnInfo = returnInfo {
++            await RemoteNotificationResponseManager.shared.sendResponseNotification(
++                to: returnInfo,
++                commandType: commandType,
++                success: success,
++                message: message
+             )
+         }
+     }
+diff --git a/NightscoutService/NightscoutServiceKit/RemoteCommands/APNSJWTManager.swift b/NightscoutService/NightscoutServiceKit/RemoteCommands/APNSJWTManager.swift
+new file mode 100644
+index 0000000..34c9e89
+--- /dev/null
++++ b/NightscoutService/NightscoutServiceKit/RemoteCommands/APNSJWTManager.swift
+@@ -0,0 +1,91 @@
++//
++//  APNSJWTManager.swift
++//  NightscoutServiceKit
++//
++//  Created for Loop APNS Response feature.
++//  Manages JWT tokens for APNS authentication.
++//
++
++import Foundation
++import OSLog
++import SwiftJWT
++
++class APNSJWTManager {
++    static let shared = APNSJWTManager()
++    
++    private init() {}
++    
++    private struct JWTCacheKey: Hashable {
++        let keyId: String
++        let teamId: String
++    }
++    
++    private struct CachedJWT {
++        let token: String
++        let expirationDate: Date
++    }
++    
++    private var jwtCache: [JWTCacheKey: CachedJWT] = [:]
++    private let cacheQueue = DispatchQueue(label: "com.loop.apnsjwtmanager.cache", attributes: .concurrent)
++    
++    func getOrGenerateJWT(keyId: String, teamId: String, apnsKey: String) -> String? {
++        let cacheKey = JWTCacheKey(keyId: keyId, teamId: teamId)
++        
++        if let cachedJWT = getCachedJWT(for: cacheKey) {
++            return cachedJWT
++        }
++        
++        do {
++            let signedJWT = try generateJWT(keyId: keyId, teamId: teamId, apnsKey: apnsKey)
++            
++            let expirationDate = Date().addingTimeInterval(3300)
++            cacheJWT(signedJWT, for: cacheKey, expirationDate: expirationDate)
++            
++            return signedJWT
++        } catch {
++            os_log("Failed to sign JWT: %{public}@", log: .default, type: .error, error.localizedDescription)
++            return nil
++        }
++    }
++    
++    private func generateJWT(keyId: String, teamId: String, apnsKey: String) throws -> String {
++        let header = Header(kid: keyId)
++        let claims = APNSJWTClaims(iss: teamId, iat: Date())
++        var jwt = JWT(header: header, claims: claims)
++        
++        let privateKey = Data(apnsKey.utf8)
++        let jwtSigner = JWTSigner.es256(privateKey: privateKey)
++        let signedJWT = try jwt.sign(using: jwtSigner)
++        
++        return signedJWT
++    }
++    
++    private struct APNSJWTClaims: Claims {
++        let iss: String
++        let iat: Date
++    }
++    
++    private func getCachedJWT(for key: JWTCacheKey) -> String? {
++        cacheQueue.sync {
++            guard let cached = jwtCache[key],
++                  Date() < cached.expirationDate
++            else {
++                return nil
++            }
++            return cached.token
++        }
++    }
++    
++    private func cacheJWT(_ token: String, for key: JWTCacheKey, expirationDate: Date) {
++        cacheQueue.async(flags: .barrier) {
++            self.jwtCache[key] = CachedJWT(token: token, expirationDate: expirationDate)
++        }
++    }
++    
++    func invalidateCache() {
++        cacheQueue.async(flags: .barrier) {
++            self.jwtCache.removeAll()
++        }
++    }
++}
++
+diff --git a/NightscoutService/NightscoutServiceKit/RemoteCommands/OTPSecureMessenger.swift b/NightscoutService/NightscoutServiceKit/RemoteCommands/OTPSecureMessenger.swift
+new file mode 100644
+index 0000000..84a2cc2
+--- /dev/null
++++ b/NightscoutService/NightscoutServiceKit/RemoteCommands/OTPSecureMessenger.swift
+@@ -0,0 +1,88 @@
++//
++//  OTPSecureMessenger.swift
++//  NightscoutServiceKit
++//
++//  Created for Loop APNS Response feature.
++//  Uses OTP code for encryption/decryption instead of shared secret.
++//
++
++import Foundation
++import CryptoKit
++
++struct OTPSecureMessenger {
++    private let encryptionKey: SymmetricKey
++    
++    init?(otpCode: String) {
++        guard let otpData = otpCode.data(using: .utf8) else {
++            return nil
++        }
++        let hashed = SHA256.hash(data: otpData)
++        encryptionKey = SymmetricKey(data: hashed)
++    }
++    
++    func encrypt<T: Encodable>(_ object: T) throws -> String {
++        let dataToEncrypt = try JSONEncoder().encode(object)
++        
++        let nonce = AES.GCM.Nonce()
++        
++        let sealedBox = try AES.GCM.seal(dataToEncrypt, using: encryptionKey, nonce: nonce)
++        
++        let nonceData = Data(nonce)
++        let ciphertext = sealedBox.ciphertext
++        let tag = sealedBox.tag
++        let combinedData = nonceData + ciphertext + tag
++        
++        return combinedData.base64EncodedString()
++    }
++    
++    func decrypt(base64EncodedString: String) throws -> ReturnNotificationInfo {
++        guard let combinedData = Data(base64Encoded: base64EncodedString) else {
++            throw NSError(
++                domain: "OTPSecureMessenger",
++                code: 100,
++                userInfo: [NSLocalizedDescriptionKey: "Invalid Base64 string"]
++            )
++        }
++        
++        let nonceSize = 12
++        let tagSize = 16
++        guard combinedData.count > nonceSize + tagSize else {
++            throw NSError(
++                domain: "OTPSecureMessenger",
++                code: 101,
++                userInfo: [NSLocalizedDescriptionKey: "Encrypted data is too short"]
++            )
++        }
++        
++        let nonceData = combinedData.prefix(nonceSize)
++        let tag = combinedData.suffix(tagSize)
++        let ciphertext = combinedData.dropFirst(nonceSize).dropLast(tagSize)
++        
++        let nonce = try AES.GCM.Nonce(data: nonceData)
++        let sealedBox = try AES.GCM.SealedBox(nonce: nonce, ciphertext: ciphertext, tag: tag)
++        
++        let decryptedData = try AES.GCM.open(sealedBox, using: encryptionKey)
++        let returnInfo = try JSONDecoder().decode(ReturnNotificationInfo.self, from: decryptedData)
++        
++        return returnInfo
++    }
++}
++
++struct ReturnNotificationInfo: Codable {
++    let productionEnvironment: Bool
++    let deviceToken: String
++    let bundleId: String
++    let teamId: String
++    let keyId: String
++    let apnsKey: String
++    
++    enum CodingKeys: String, CodingKey {
++        case productionEnvironment = "production_environment"
++        case deviceToken = "device_token"
++        case bundleId = "bundle_id"
++        case teamId = "team_id"
++        case keyId = "key_id"
++        case apnsKey = "apns_key"
++    }
++}
++
+diff --git a/NightscoutService/NightscoutServiceKit/RemoteCommands/RemoteNotificationResponseManager.swift b/NightscoutService/NightscoutServiceKit/RemoteCommands/RemoteNotificationResponseManager.swift
+new file mode 100644
+index 0000000..95274e4
+--- /dev/null
++++ b/NightscoutService/NightscoutServiceKit/RemoteCommands/RemoteNotificationResponseManager.swift
+@@ -0,0 +1,134 @@
++//
++//  RemoteNotificationResponseManager.swift
++//  NightscoutServiceKit
++//
++//  Created for Loop APNS Response feature.
++//  Manages sending response notifications back via APNS.
++//
++
++import Foundation
++import OSLog
++
++class RemoteNotificationResponseManager {
++    static let shared = RemoteNotificationResponseManager()
++    
++    private let log = OSLog(category: "RemoteNotificationResponseManager")
++    
++    private init() {}
++    
++    struct NotificationPayload: Encodable {
++        let aps: APSPayload
++        let commandStatus: String
++        let commandType: String
++        let timestamp: TimeInterval
++        
++        enum CodingKeys: String, CodingKey {
++            case aps
++            case commandStatus = "command_status"
++            case commandType = "command_type"
++            case timestamp
++        }
++    }
++    
++    struct APSPayload: Encodable {
++        let alert: Alert
++        let sound: String = "default"
++    }
++    
++    struct Alert: Encodable {
++        let title: String
++        let body: String
++    }
++    
++    enum CommandType: String {
++        case bolus = "bolus"
++        case carbs = "carbs"
++        case override = "override"
++        case cancelOverride = "cancel_override"
++    }
++    
++    func sendResponseNotification(
++        to returnInfo: ReturnNotificationInfo?,
++        commandType: CommandType,
++        success: Bool,
++        message: String
++    ) async {
++        guard let returnInfo = returnInfo else {
++            os_log("No return notification info provided, skipping response", log: log, type: .info)
++            return
++        }
++        
++        guard !returnInfo.deviceToken.isEmpty else {
++            os_log("Return notification info has empty device token, skipping response", log: log, type: .error)
++            return
++        }
++        
++        os_log("Sending response notification - Type: %{public}@, Status: %{public}@, Message: %{public}@, DeviceToken: %{public}@", log: log, type: .info, commandType.rawValue, success ? "success" : "failed", message, returnInfo.deviceToken)
++        
++        let payload = NotificationPayload(
++            aps: APSPayload(
++                alert: Alert(
++                    title: success ? "Command Successful" : "Command Failed",
++                    body: message
++                )
++            ),
++            commandStatus: success ? "success" : "failed",
++            commandType: commandType.rawValue,
++            timestamp: Date().timeIntervalSince1970
++        )
++        
++        await sendPushNotification(
++            payload: payload,
++            to: returnInfo.deviceToken,
++            using: returnInfo
++        )
++    }
++    
++    private func sendPushNotification(
++        payload: NotificationPayload,
++        to deviceToken: String,
++        using returnInfo: ReturnNotificationInfo
++    ) async {
++        guard let jwt = APNSJWTManager.shared.getOrGenerateJWT(
++            keyId: returnInfo.keyId,
++            teamId: returnInfo.teamId,
++            apnsKey: returnInfo.apnsKey
++        ) else {
++            os_log("Failed to generate JWT for response notification", log: log, type: .error)
++            return
++        }
++        
++        let host = returnInfo.productionEnvironment ? "api.push.apple.com" : "api.sandbox.push.apple.com"
++        guard let url = URL(string: "https://\(host)/3/device/\(deviceToken)") else {
++            os_log("Failed to construct APNs URL", log: log, type: .error)
++            return
++        }
++        
++        var request = URLRequest(url: url)
++        request.httpMethod = "POST"
++        request.setValue("bearer \(jwt)", forHTTPHeaderField: "authorization")
++        request.setValue("application/json", forHTTPHeaderField: "content-type")
++        request.setValue("10", forHTTPHeaderField: "apns-priority")
++        request.setValue("0", forHTTPHeaderField: "apns-expiration")
++        request.setValue(returnInfo.bundleId, forHTTPHeaderField: "apns-topic")
++        request.setValue("alert", forHTTPHeaderField: "apns-push-type")
++        
++        do {
++            let jsonData = try JSONEncoder().encode(payload)
++            request.httpBody = jsonData
++            
++            let (_, response) = try await URLSession.shared.data(for: request)
++            
++            if let httpResponse = response as? HTTPURLResponse {
++                if httpResponse.statusCode == 200 {
++                    os_log("Response notification sent successfully", log: log, type: .info)
++                } else {
++                    os_log("Failed to send response notification: %d", log: log, type: .error, httpResponse.statusCode)
++                }
++            }
++        } catch {
++            os_log("Error sending response notification: %{public}@", log: log, type: .error, error.localizedDescription)
++        }
++    }
++}
++
+diff --git a/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/BolusRemoteNotification.swift b/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/BolusRemoteNotification.swift
+index a0c00e9..1c14cdf 100644
+--- a/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/BolusRemoteNotification.swift
++++ b/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/BolusRemoteNotification.swift
+@@ -17,6 +17,7 @@ public struct BolusRemoteNotification: RemoteNotification, Codable {
+     public let sentAt: Date?
+     public let otp: String?
+     public let enteredBy: String?
++    public let encryptedReturnNotification: String?
+     
+     enum CodingKeys: String, CodingKey {
+         case remoteAddress = "remote-address"
+@@ -25,6 +26,7 @@ public struct BolusRemoteNotification: RemoteNotification, Codable {
+         case sentAt = "sent-at"
+         case otp = "otp"
+         case enteredBy = "entered-by"
++        case encryptedReturnNotification = "encrypted_return_notification"
+     }
+     
+     func toRemoteAction() -> Action {
+diff --git a/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/CarbRemoteNotification.swift b/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/CarbRemoteNotification.swift
+index 39d4b9e..6c238ed 100644
+--- a/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/CarbRemoteNotification.swift
++++ b/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/CarbRemoteNotification.swift
+@@ -20,6 +20,7 @@ public struct CarbRemoteNotification: RemoteNotification, Codable {
+     public let sentAt: Date?
+     public let otp: String?
+     public let enteredBy: String?
++    public let encryptedReturnNotification: String?
+ 
+     enum CodingKeys: String, CodingKey {
+         case remoteAddress = "remote-address"
+@@ -31,6 +32,7 @@ public struct CarbRemoteNotification: RemoteNotification, Codable {
+         case sentAt = "sent-at"
+         case otp = "otp"
+         case enteredBy = "entered-by"
++        case encryptedReturnNotification = "encrypted_return_notification"
+     }
+     
+     public func absorptionTime() -> TimeInterval? {
+diff --git a/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/OverrideCancelRemoteNotification.swift b/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/OverrideCancelRemoteNotification.swift
+index ac72b11..fdd6d6b 100644
+--- a/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/OverrideCancelRemoteNotification.swift
++++ b/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/OverrideCancelRemoteNotification.swift
+@@ -17,6 +17,7 @@ public struct OverrideCancelRemoteNotification: RemoteNotification, Codable {
+     public let cancelOverride: String
+     public let enteredBy: String?
+     public let otp: String?
++    public let encryptedReturnNotification: String?
+ 
+     enum CodingKeys: String, CodingKey {
+         case remoteAddress = "remote-address"
+@@ -25,6 +26,7 @@ public struct OverrideCancelRemoteNotification: RemoteNotification, Codable {
+         case cancelOverride = "cancel-temporary-override"
+         case enteredBy = "entered-by"
+         case otp = "otp"
++        case encryptedReturnNotification = "encrypted_return_notification"
+     }
+     
+     func toRemoteAction() -> Action {
+diff --git a/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/OverrideRemoteNotification.swift b/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/OverrideRemoteNotification.swift
+index 65ff33f..2060a74 100644
+--- a/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/OverrideRemoteNotification.swift
++++ b/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/OverrideRemoteNotification.swift
+@@ -18,6 +18,7 @@ public struct OverrideRemoteNotification: RemoteNotification, Codable {
+     public let sentAt: Date?
+     public let enteredBy: String?
+     public let otp: String?
++    public let encryptedReturnNotification: String?
+     
+     enum CodingKeys: String, CodingKey {
+         case name = "override-name"
+@@ -27,6 +28,7 @@ public struct OverrideRemoteNotification: RemoteNotification, Codable {
+         case sentAt = "sent-at"
+         case enteredBy = "entered-by"
+         case otp = "otp"
++        case encryptedReturnNotification = "encrypted_return_notification"
+     }
+     
+     public func durationTime() -> TimeInterval? {
+diff --git a/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/RemoteNotification.swift b/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/RemoteNotification.swift
+index bf629e8..0c5f8e3 100644
+--- a/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/RemoteNotification.swift
++++ b/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/Notifications/RemoteNotification.swift
+@@ -8,6 +8,7 @@
+ 
+ import Foundation
+ import LoopKit
++import OSLog
+ 
+ protocol RemoteNotification: Codable {
+     
+@@ -17,9 +18,11 @@ protocol RemoteNotification: Codable {
+     var otp: String? {get}
+     var remoteAddress: String {get}
+     var enteredBy: String? {get}
++    var encryptedReturnNotification: String? {get}
+     
+     func toRemoteAction() -> Action
+     func otpValidationRequired() -> Bool
++    func getReturnNotificationInfo() -> ReturnNotificationInfo?
+     
+     static func includedInNotification(_ notification: [String: Any]) -> Bool
+ }
+@@ -35,6 +38,37 @@ extension RemoteNotification {
+         }
+     }
+     
++    func getReturnNotificationInfo() -> ReturnNotificationInfo? {
++        if encryptedReturnNotification == nil {
++            os_log("No encrypted return notification found in remote notification", log: .default, type: .info)
++            return nil
++        }
++        
++        guard let encryptedData = encryptedReturnNotification else {
++            os_log("encryptedReturnNotification is nil", log: .default, type: .error)
++            return nil
++        }
++        
++        guard let otpCode = otp else {
++            os_log("OTP code is nil, cannot decrypt return notification info", log: .default, type: .error)
++            return nil
++        }
++        
++        guard let messenger = OTPSecureMessenger(otpCode: otpCode) else {
++            os_log("Failed to create OTPSecureMessenger with OTP code", log: .default, type: .error)
++            return nil
++        }
++        
++        do {
++            let returnInfo = try messenger.decrypt(base64EncodedString: encryptedData)
++            os_log("Successfully decrypted return notification info for device token: %{public}@", log: .default, type: .info, returnInfo.deviceToken)
++            return returnInfo
++        } catch {
++            os_log("Failed to decrypt return notification info: %{public}@", log: .default, type: .error, error.localizedDescription)
++            return nil
++        }
++    }
++    
+     init(dictionary: [String: Any]) throws {
+         let data = try JSONSerialization.data(withJSONObject: dictionary)
+         let jsonDecoder = JSONDecoder()
+diff --git a/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/RemoteCommandSourceV1.swift b/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/RemoteCommandSourceV1.swift
+index 26d9de0..0165004 100644
+--- a/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/RemoteCommandSourceV1.swift
++++ b/NightscoutService/NightscoutServiceKit/RemoteCommands/V1/RemoteCommandSourceV1.swift
+@@ -26,16 +26,30 @@ class RemoteCommandSourceV1: RemoteCommandSource {
+     
+     func remoteNotificationWasReceived(_ notification: [String: AnyObject]) async {
+         
++        if let encryptedReturnNotification = notification["encrypted_return_notification"] {
++            log.info("Found encrypted_return_notification in notification: %{public}@", String(describing: encryptedReturnNotification))
++        } else {
++            log.info("No encrypted_return_notification found in notification. Available keys: %{public}@", Array(notification.keys).joined(separator: ", "))
++        }
++        
+         do {
+             guard let delegate = delegate else {return}
+             let remoteNotification = try notification.toRemoteNotification()
++            
++            // Log after parsing to see if the field was preserved
++            if let encryptedReturnNotification = remoteNotification.encryptedReturnNotification {
++                log.info("Parsed encrypted_return_notification successfully, length: %d", encryptedReturnNotification.count)
++            } else {
++                log.info("encrypted_return_notification is nil after parsing")
++            }
++            
+             guard await !recentNotifications.isDuplicate(remoteNotification) else {
+                 // Duplicate notifications are expected after app is force killed
+                 // https://github.com/LoopKit/Loop/issues/2174
+                 return
+             }
+             try commandValidator.validate(remoteNotification: remoteNotification)
+-            try await delegate.commandSourceV1(self, handleAction: remoteNotification.toRemoteAction())
++            try await delegate.commandSourceV1(self, handleAction: remoteNotification.toRemoteAction(), remoteNotification: remoteNotification)
+         } catch {
+             log.error("Remote Notification: %{public}@. Error: %{public}@", String(describing: notification), String(describing: error))
+             try? await self.delegate?.commandSourceV1(self, uploadError: error, notification: notification)
+@@ -44,7 +58,7 @@ class RemoteCommandSourceV1: RemoteCommandSource {
+ }
+ 
+ protocol RemoteCommandSourceV1Delegate: AnyObject {
+-    func commandSourceV1(_: RemoteCommandSourceV1, handleAction action: Action) async throws
++    func commandSourceV1(_: RemoteCommandSourceV1, handleAction action: Action, remoteNotification: RemoteNotification) async throws
+     func commandSourceV1(_: RemoteCommandSourceV1, uploadError error: Error, notification: [String: AnyObject]) async throws
+ }
+ 
+-- 
+2.49.0
+

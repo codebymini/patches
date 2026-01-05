@@ -1,8 +1,8 @@
 Submodule Loop contains modified content
-diff --git a/Loop/Managers/DeviceDataManager.swift b/Loop/Managers/DeviceDataManager.swift
+diff --git a/Loop/Loop/Managers/DeviceDataManager.swift b/Loop/Loop/Managers/DeviceDataManager.swift
 index 2751f18f..bcf69b8c 100644
---- a/Loop/Managers/DeviceDataManager.swift
-+++ b/Loop/Managers/DeviceDataManager.swift
+--- a/Loop/Loop/Managers/DeviceDataManager.swift
++++ b/Loop/Loop/Managers/DeviceDataManager.swift
 @@ -1646,6 +1646,7 @@ extension DeviceDataManager: TherapySettingsViewModelDelegate {
              settings.basalRateSchedule = therapySettings.basalRateSchedule
              settings.maximumBasalRatePerHour = therapySettings.maximumBasalRatePerHour
@@ -11,10 +11,10 @@ index 2751f18f..bcf69b8c 100644
              settings.defaultRapidActingModel = therapySettings.defaultRapidActingModel
              settings.carbRatioSchedule = therapySettings.carbRatioSchedule
              settings.insulinSensitivitySchedule = therapySettings.insulinSensitivitySchedule
-diff --git a/Loop/Managers/LoopDataManager.swift b/Loop/Managers/LoopDataManager.swift
+diff --git a/Loop/Loop/Managers/LoopDataManager.swift b/Loop/Loop/Managers/LoopDataManager.swift
 index 2319f4ec..9d5d6f8a 100644
---- a/Loop/Managers/LoopDataManager.swift
-+++ b/Loop/Managers/LoopDataManager.swift
+--- a/Loop/Loop/Managers/LoopDataManager.swift
++++ b/Loop/Loop/Managers/LoopDataManager.swift
 @@ -1792,8 +1792,8 @@ extension LoopDataManager {
  
              let dosingRecommendation: AutomaticDoseRecommendation?
@@ -42,10 +42,10 @@ index 2319f4ec..9d5d6f8a 100644
                  settings.maximumBasalRatePerHour = newValue.maximumBasalRatePerHour
                  settings.overridePresets = newValue.overridePresets ?? []
              }
-diff --git a/LoopCore/LoopSettings.swift b/LoopCore/LoopSettings.swift
+diff --git a/Loop/LoopCore/LoopSettings.swift b/Loop/LoopCore/LoopSettings.swift
 index 82ad76b6..439207cd 100644
---- a/LoopCore/LoopSettings.swift
-+++ b/LoopCore/LoopSettings.swift
+--- a/Loop/LoopCore/LoopSettings.swift
++++ b/Loop/LoopCore/LoopSettings.swift
 @@ -69,6 +69,8 @@ public struct LoopSettings: Equatable {
  
      public var maximumBolus: Double?
@@ -89,10 +89,10 @@ index 82ad76b6..439207cd 100644
          raw["dosingStrategy"] = automaticDosingStrategy.rawValue
          
 Submodule LoopKit contains modified content
-diff --git a/LoopKit/DeliveryLimits.swift b/LoopKit/DeliveryLimits.swift
+diff --git a/LoopKit/LoopKit/DeliveryLimits.swift b/LoopKit/LoopKit/DeliveryLimits.swift
 index 28a6a591..6d213f7e 100644
---- a/LoopKit/DeliveryLimits.swift
-+++ b/LoopKit/DeliveryLimits.swift
+--- a/LoopKit/LoopKit/DeliveryLimits.swift
++++ b/LoopKit/LoopKit/DeliveryLimits.swift
 @@ -12,14 +12,16 @@ public struct DeliveryLimits: Equatable {
      public enum Setting: Equatable {
          case maximumBasalRate
@@ -141,10 +141,10 @@ index 28a6a591..6d213f7e 100644
          }
      }
  }
-diff --git a/LoopKit/Extensions/Guardrail+Settings.swift b/LoopKit/Extensions/Guardrail+Settings.swift
+diff --git a/LoopKit/LoopKit/Extensions/Guardrail+Settings.swift b/LoopKit/LoopKit/Extensions/Guardrail+Settings.swift
 index 1c8398fe..4eb3864c 100644
---- a/LoopKit/Extensions/Guardrail+Settings.swift
-+++ b/LoopKit/Extensions/Guardrail+Settings.swift
+--- a/LoopKit/LoopKit/Extensions/Guardrail+Settings.swift
++++ b/LoopKit/LoopKit/Extensions/Guardrail+Settings.swift
 @@ -172,4 +172,21 @@ public extension Guardrail where Value == HKQuantity {
              guardrail.absoluteBounds.contains(HKQuantity(unit: .internationalUnit(), doubleValue: $0))
          }
@@ -167,10 +167,10 @@ index 1c8398fe..4eb3864c 100644
 +        )
 +    }
  }
-diff --git a/LoopKit/Resources/Localizable.xcstrings b/LoopKit/Resources/Localizable.xcstrings
+diff --git a/LoopKit/LoopKit/Resources/Localizable.xcstrings b/LoopKit/LoopKit/Resources/Localizable.xcstrings
 index 8e241ec8..3c04a931 100644
---- a/LoopKit/Resources/Localizable.xcstrings
-+++ b/LoopKit/Resources/Localizable.xcstrings
+--- a/LoopKit/LoopKit/Resources/Localizable.xcstrings
++++ b/LoopKit/LoopKit/Resources/Localizable.xcstrings
 @@ -8291,6 +8291,12 @@
          }
        }
@@ -184,10 +184,10 @@ index 8e241ec8..3c04a931 100644
      "mg/dL/min" : {
        "comment" : "The short unit display string for milligrams per liter per minute",
        "localizations" : {
-diff --git a/LoopKit/TherapySettings.swift b/LoopKit/TherapySettings.swift
+diff --git a/LoopKit/LoopKit/TherapySettings.swift b/LoopKit/LoopKit/TherapySettings.swift
 index dd4de7bb..efaa7cb6 100644
---- a/LoopKit/TherapySettings.swift
-+++ b/LoopKit/TherapySettings.swift
+--- a/LoopKit/LoopKit/TherapySettings.swift
++++ b/LoopKit/LoopKit/TherapySettings.swift
 @@ -20,6 +20,8 @@ public struct TherapySettings: Equatable {
  
      public var maximumBolus: Double?
@@ -245,10 +245,10 @@ index dd4de7bb..efaa7cb6 100644
          case suspendThreshold
          case insulinSensitivitySchedule
          case carbRatioSchedule
-diff --git a/LoopKitUI/Resources/Localizable.xcstrings b/LoopKitUI/Resources/Localizable.xcstrings
+diff --git a/LoopKit/LoopKitUI/Resources/Localizable.xcstrings b/LoopKit/LoopKitUI/Resources/Localizable.xcstrings
 index f44dff2f..6ca72fc0 100644
---- a/LoopKitUI/Resources/Localizable.xcstrings
-+++ b/LoopKitUI/Resources/Localizable.xcstrings
+--- a/LoopKit/LoopKitUI/Resources/Localizable.xcstrings
++++ b/LoopKit/LoopKitUI/Resources/Localizable.xcstrings
 @@ -15335,6 +15335,9 @@
          }
        }
@@ -269,10 +269,10 @@ index f44dff2f..6ca72fc0 100644
      "Low Pre-Meal Value" : {
        "comment" : "Title text for the low pre-meal value warning",
        "localizations" : {
-diff --git a/LoopKitUI/ViewModels/TherapySettingsViewModel.swift b/LoopKitUI/ViewModels/TherapySettingsViewModel.swift
+diff --git a/LoopKit/LoopKitUI/ViewModels/TherapySettingsViewModel.swift b/LoopKit/LoopKitUI/ViewModels/TherapySettingsViewModel.swift
 index 3650ef60..256cdd30 100644
---- a/LoopKitUI/ViewModels/TherapySettingsViewModel.swift
-+++ b/LoopKitUI/ViewModels/TherapySettingsViewModel.swift
+--- a/LoopKit/LoopKitUI/ViewModels/TherapySettingsViewModel.swift
++++ b/LoopKit/LoopKitUI/ViewModels/TherapySettingsViewModel.swift
 @@ -177,6 +177,7 @@ extension TherapySettingsViewModel {
      public func saveDeliveryLimits(limits: DeliveryLimits) {
          therapySettings.maximumBasalRatePerHour = limits.maximumBasalRate?.doubleValue(for: .internationalUnitsPerHour)
@@ -281,10 +281,10 @@ index 3650ef60..256cdd30 100644
          delegate?.saveCompletion(therapySettings: therapySettings)
      }
      
-diff --git a/LoopKitUI/Views/Settings Editors/DeliveryLimitsEditor.swift b/LoopKitUI/Views/Settings Editors/DeliveryLimitsEditor.swift
+diff --git a/LoopKit/LoopKitUI/Views/Settings Editors/DeliveryLimitsEditor.swift b/LoopKit/LoopKitUI/Views/Settings Editors/DeliveryLimitsEditor.swift
 index aa3c100c..506fc53d 100644
---- a/LoopKitUI/Views/Settings Editors/DeliveryLimitsEditor.swift	
-+++ b/LoopKitUI/Views/Settings Editors/DeliveryLimitsEditor.swift	
+--- a/LoopKit/LoopKitUI/Views/Settings Editors/DeliveryLimitsEditor.swift	
++++ b/LoopKit/LoopKitUI/Views/Settings Editors/DeliveryLimitsEditor.swift	
 @@ -78,8 +78,12 @@ public struct DeliveryLimitsEditor: View {
              HKQuantity(unit: .internationalUnit(), doubleValue: $0)
          }
@@ -414,10 +414,10 @@ index aa3c100c..506fc53d 100644
          }
      }
  }
-diff --git a/LoopKitUI/Views/Settings Editors/TherapySettingsView.swift b/LoopKitUI/Views/Settings Editors/TherapySettingsView.swift
+diff --git a/LoopKit/LoopKitUI/Views/Settings Editors/TherapySettingsView.swift b/LoopKit/LoopKitUI/Views/Settings Editors/TherapySettingsView.swift
 index 1a11c629..a24e8021 100644
---- a/LoopKitUI/Views/Settings Editors/TherapySettingsView.swift
-+++ b/LoopKitUI/Views/Settings Editors/TherapySettingsView.swift
+--- a/LoopKit/LoopKitUI/Views/Settings Editors/TherapySettingsView.swift
++++ b/LoopKit/LoopKitUI/Views/Settings Editors/TherapySettingsView.swift
 @@ -281,6 +281,10 @@ extension TherapySettingsView {
              self.maxBasalRateItem
              SettingsDivider()
